@@ -21,9 +21,100 @@
     .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
     .preview{height:70vh;overflow:auto;border:1px solid var(--border);padding:12px;border-radius:8px;background:var(--card);font-family:'Segoe UI',sans-serif}
     textarea.editor{width:100%;height:70vh;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:14px;resize:vertical;background:var(--card);color:var(--text);font-family:'Segoe UI',sans-serif}
-    #guideModal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:none;justify-content:center;align-items:center;z-index:1000}
-    #guideModal .content{background:var(--card);color:var(--text);width:80%;height:80%;overflow:auto;padding:20px;border-radius:12px;font-family:'Segoe UI',sans-serif}
-    #guideModal .close{position:absolute;top:20px;right:40px;font-size:24px;font-weight:bold;cursor:pointer;color:#fff}
+    /* Cải thiện Modal Guide */
+    #guideModal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    #guideModal.show {
+        display: flex;
+        opacity: 1;
+    }
+    #guideModal .content {
+        background: var(--card);
+        color: var(--text);
+        width: 90%;
+        max-width: 800px;
+        height: 80%;
+        max-height: 80vh;
+        overflow-y: auto;
+        padding: 0;
+        border-radius: 12px;
+        position: relative;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        animation: slideIn 0.3s ease;
+    }
+    @keyframes slideIn {
+        from { transform: translateY(-20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    #guideModal .header {
+        background: var(--accent);
+        color: white;
+        padding: 20px;
+        border-radius: 12px 12px 0 0;
+        text-align: center;
+        font-size: 18px;
+        font-weight: bold;
+    }
+    #guideModal .body {
+        padding: 20px;
+        line-height: 1.6;
+    }
+    #guideModal .footer {
+        padding: 15px 20px;
+        text-align: center;
+        border-top: 1px solid var(--border);
+        background: var(--bg);
+        border-radius: 0 0 12px 12px;
+    }
+    #guideModal .close {
+        position: absolute;
+        top: 15px;
+        right: 20px;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        color: white;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
+    }
+    #guideModal .close:hover {
+        background: rgba(255, 255, 255, 0.4);
+    }
+    #guideModal pre {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 12px;
+        overflow-x: auto;
+        font-family: 'Courier New', monospace;
+        font-size: 13px;
+        white-space: pre-wrap;
+        margin: 10px 0;
+    }
+    #guideModal h2 {
+        color: var(--accent);
+        border-bottom: 2px solid var(--border);
+        padding-bottom: 5px;
+    }
+    @media (max-width: 768px) {.grid{grid-template-columns:1fr;}.controls{flex-direction:column;} #guideModal .content { width: 95%; height: 90%; } #guideModal .header { font-size: 16px; padding: 15px; }}
   </style>
 </head>
 <body>
@@ -48,11 +139,12 @@
         <button id="btnReview" class="btn ghost">REVIEW</button>
         <button id="btnSave" class="btn primary">SAVE</button>
         <button id="btnExport" class="btn ghost">EXPORT PDF</button>
+        <button id="btnClearAutosave" class="btn ghost">Clear Autosave</button>
       </div>
       <div class="grid">
         <div>
           <h4>Edit Markdown</h4>
-          <textarea id="editor" class="editor"></textarea>
+          <textarea id="editor" class="editor" placeholder="Nhập Markdown ở đây... (ví dụ: # Tiêu đề&#10;**In đậm** để test autosave)"></textarea>
         </div>
         <div>
           <h4>Review Output</h4>
@@ -63,8 +155,16 @@
   </div>
 
   <div id="guideModal">
-    <div class="close" id="closeGuide">×</div>
-    <div class="content" id="guideContent"></div>
+    <div class="content">
+        <div class="header">
+            📘 Hướng dẫn Markdown Chuyên Nghiệp
+            <div class="close" id="closeGuide">×</div>
+        </div>
+        <div class="body" id="guideContent"></div>
+        <div class="footer">
+            <p style="margin: 0; font-size: 14px; opacity: 0.8;">Sử dụng phím Esc để đóng. Nguồn: Markdown Guide Pro</p>
+        </div>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -80,6 +180,7 @@
     const btnExport=document.getElementById('btnExport');
     const btnDark=document.getElementById('btnDark');
     const btnGuide=document.getElementById('btnGuide');
+    const btnClearAutosave=document.getElementById('btnClearAutosave');
     const editor=document.getElementById('editor');
     const preview=document.getElementById('preview');
     const reviewPreview=document.getElementById('reviewPreview');
@@ -183,8 +284,14 @@
       }else{document.body.setAttribute('data-theme','dark');btnDark.textContent='☀️ Light Mode';}
     });
 
-    btnGuide.addEventListener('click',()=>{guideModal.style.display='flex';guideContent.innerHTML=document.getElementById('guideHTML').innerHTML;});
-    closeGuide.addEventListener('click',()=>guideModal.style.display='none');
+    // Listener mới cho modal guide (với animation)
+    btnGuide.addEventListener('click', () => {
+        guideModal.classList.add('show'); // Thêm class show cho animation
+        guideContent.innerHTML = document.getElementById('guideHTML').innerHTML;
+    });
+    closeGuide.addEventListener('click', () => {
+        guideModal.classList.remove('show'); // Remove class cho fade out
+    });
 
     // THÊM: Event listeners cho autosave
     const debouncedAutosave = debounce(autosaveContent, 3000);
@@ -196,38 +303,87 @@
         restoreAutosave();
     });
 
+    // THÊM MỚI: Đóng modal bằng phím Esc
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && guideModal.classList.contains('show')) {
+            guideModal.classList.remove('show');
+        }
+    });
+
     // THÊM: Nút Clear Autosave (thêm vào controls của editSection)
-    const clearAutosaveBtn = document.createElement('button');
-    clearAutosaveBtn.textContent = 'Clear Autosave';
-    clearAutosaveBtn.className = 'btn ghost';
-    clearAutosaveBtn.addEventListener('click', () => {
+    btnClearAutosave.addEventListener('click', () => {
         if (confirm('Xóa autosave?')) {
             localStorage.removeItem(autosaveKey);
             alert('Đã xóa autosave!');
         }
     });
-    document.querySelector('#editSection .controls').appendChild(clearAutosaveBtn);
   </script>
 
-  <!-- Embedded Markdown Guide HTML -->
+  <!-- Embedded Markdown Guide HTML - Phiên bản cải thiện -->
   <div id="guideHTML" style="display:none;font-family:'Segoe UI',sans-serif">
-    <h1>📘 Hướng dẫn sử dụng Markdown — Phiên bản chuyên nghiệp</h1>
-    <p><b>Mục tiêu:</b> Tạo tệp .md có cấu trúc chuyên nghiệp, tương thích hoàn hảo khi hiển thị hoặc chuyển PDF/HTML.</p>
-    <h2>1️⃣ Cấu trúc cơ bản</h2>
-    <ul><li><b>Tiêu đề:</b> # H1 → ###### H6</li><li><b>Đoạn:</b> cách nhau 1 dòng trống.</li></ul>
-    <pre># Tiêu đề chính (H1)\n## Tiêu đề phụ (H2)\n---\nĐoạn văn 1\n\nĐoạn văn 2</pre>
-    <h2>2️⃣ Định dạng</h2>
-    <pre>**bold** *italic* ~~gạch~~</pre>
-    <h2>3️⃣ Danh sách</h2>
-    <pre>- Mục 1\n- Mục 2\n1. Bước 1\n2. Bước 2</pre>
-    <h2>4️⃣ Bảng</h2>
-    <pre>| STT | Tiêu đề | Ghi chú |\n|---:|:---|:---|\n| 1 | A | B |</pre>
+    <h1>📘 Hướng dẫn Sử Dụng Markdown — Phiên Bản Chuyên Nghiệp</h1>
+    <p><strong>Mục tiêu:</strong> Tạo file .md có cấu trúc rõ ràng, dễ render sang HTML/PDF. Sử dụng công cụ này để edit và export nhanh!</p>
+    
+    <h2>1️⃣ Cấu Trúc Cơ Bản</h2>
+    <ul>
+      <li><strong>Tiêu đề:</strong> Sử dụng # cho H1 đến ###### cho H6.</li>
+      <li><strong>Đoạn văn:</strong> Cách nhau bằng dòng trống. Thêm <code>&lt;br&gt;</code> cho line break nếu cần.</li>
+    </ul>
+    <pre><code># Tiêu Đề Chính (H1)
+## Tiêu Đề Phụ (H2)
+### H3 Nhỏ Hơn
+
+---
+Dòng ngang phân cách
+
+Đây là đoạn văn đầu tiên.
+
+Đây là đoạn văn thứ hai (cách 1 dòng trống).
+</code></pre>
+
+    <h2>2️⃣ Định Dạng Văn Bản</h2>
+    <p>Sử dụng syntax đơn giản để làm nổi bật:</p>
+    <pre><code>**Text in đậm** (hoặc __text__)
+*Text nghiêng* (hoặc _text_)
+~~Text gạch ngang~~
+<code>`Inline code`</code> (dùng cho code ngắn)
+</code></pre>
+    <p>Ví dụ render: <strong>Đậm</strong>, <em>Nghiêng</em>, <del>Gạch</del>, <code>code</code>.</p>
+
+    <h2>3️⃣ Danh Sách & Checklist</h2>
+    <ul>
+      <li><strong>Danh sách không thứ tự:</strong> Dùng - hoặc *.</li>
+      <li><strong>Danh sách có thứ tự:</strong> Dùng số.</li>
+      <li><strong>Checklist:</strong> - [ ] Chưa hoàn thành | - [x] Đã xong.</li>
+    </ul>
+    <pre><code>- Mục 1
+- Mục 2
+  - Mục con (indent 2 khoảng trắng)
+
+1. Bước 1
+2. Bước 2
+
+- [ ] Nhiệm vụ 1
+- [x] Nhiệm vụ 2 (đã hoàn thành)
+</code></pre>
+
+    <h2>4️⃣ Bảng (Table)</h2>
+    <p>Tạo bảng bằng | phân cách cột, --- cho header. Căn chỉnh: :-- (trái), --: (phải), :--: (giữa).</p>
+    <pre><code>| STT | Tên | Ghi Chú |
+|-----|:---:|--------:|
+| 1   | A   | Mô tả 1 |
+| 2   | B   | Mô tả 2 |
+</code></pre>
+    <p>Ví dụ render:</p>
+    <table style="border-collapse: collapse; width: 100%;">
+      <tr><th style="border: 1px solid #ddd; padding: 8px;">STT</th><th style="border: 1px solid #ddd; padding: 8px;">Tên</th><th style="border: 1px solid #ddd; padding: 8px;">Ghi Chú</th></tr>
+      <tr><td style="border: 1px solid #ddd; padding: 8px;">1</td><td style="border: 1px solid #ddd; padding: 8px;">A</td><td style="border: 1px solid #ddd; padding: 8px;">Mô tả 1</td></tr>
+      <tr><td style="border: 1px solid #ddd; padding: 8px;">2</td><td style="border: 1px solid #ddd; padding: 8px;">B</td><td style="border: 1px solid #ddd; padding: 8px;">Mô tả 2</td></tr>
+    </table>
+
     <h2>5️⃣ Code Block</h2>
-    <pre>```js\nconsole.log('hi')\n```</pre>
-    <h2>6️⃣ Metadata</h2>
-    <pre>---\ntitle: "Tên"\nauthor: "Tác giả"\n---</pre>
-    <h2>✅ Checklist</h2>
-    <ul><li>Kiểm tra tiêu đề tuần tự.</li><li>Liên kết & hình ảnh hợp lệ.</li><li>Bảng hiển thị cân đối.</li></ul>
-  </div>
-</body>
-</html>
+    <p>Dùng ba dấu ``` để block code, chỉ định ngôn ngữ (js, python, html) để highlight syntax.</p>
+    <pre><code>```javascript
+function hello() {
+  console.log('Hello, Markdown!');
+}
