@@ -24,6 +24,7 @@
     #guideModal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:none;justify-content:center;align-items:center;z-index:1000}
     #guideModal .content{background:var(--card);color:var(--text);width:80%;height:80%;overflow:auto;padding:20px;border-radius:12px;font-family:'Segoe UI',sans-serif}
     #guideModal .close{position:absolute;top:20px;right:40px;font-size:24px;font-weight:bold;cursor:pointer;color:#fff}
+    @media (max-width: 768px) {.grid{grid-template-columns:1fr;}.controls{flex-direction:column;}}
   </style>
 </head>
 <body>
@@ -48,11 +49,12 @@
         <button id="btnReview" class="btn ghost">REVIEW</button>
         <button id="btnSave" class="btn primary">SAVE</button>
         <button id="btnExport" class="btn ghost">EXPORT PDF</button>
+        <button id="btnClearAutosave" class="btn ghost">Clear Autosave</button>
       </div>
       <div class="grid">
         <div>
           <h4>Edit Markdown</h4>
-          <textarea id="editor" class="editor"></textarea>
+          <textarea id="editor" class="editor" placeholder="Nhập Markdown ở đây... (ví dụ: # Tiêu đề&#10;**In đậm** để test autosave)"></textarea>
         </div>
         <div>
           <h4>Review Output</h4>
@@ -80,6 +82,7 @@
     const btnExport=document.getElementById('btnExport');
     const btnDark=document.getElementById('btnDark');
     const btnGuide=document.getElementById('btnGuide');
+    const btnClearAutosave=document.getElementById('btnClearAutosave');
     const editor=document.getElementById('editor');
     const preview=document.getElementById('preview');
     const reviewPreview=document.getElementById('reviewPreview');
@@ -89,6 +92,48 @@
     const guideContent=document.getElementById('guideContent');
     const closeGuide=document.getElementById('closeGuide');
     let currentFilename=null;
+
+    // THÊM PHẦN AUTOSAVE: Biến mới (sau các const)
+    let autosaveKey = 'md-editor-autosave';
+    let isAutosaving = false;
+
+    // Hàm lưu autosave
+    function autosaveContent() {
+        if (!editor.value || isAutosaving) return;
+        isAutosaving = true;
+        const saveData = {
+            content: editor.value,
+            filename: currentFilename || 'new_file.md',
+            timestamp: new Date().toISOString()
+        };
+        localStorage.setItem(autosaveKey, JSON.stringify(saveData));
+        console.log('Autosaved:', saveData.filename); // Debug optional
+        isAutosaving = false;
+    }
+
+    // Hàm khôi phục autosave
+    function restoreAutosave() {
+        const saved = localStorage.getItem(autosaveKey);
+        if (saved) {
+            const data = JSON.parse(saved);
+            if (confirm(`Tìm thấy autosave từ ${new Date(data.timestamp).toLocaleString('vi-VN')}. Khôi phục?`)) {
+                editor.value = data.content;
+                currentFilename = data.filename;
+                renderMarkdown(editor.value, reviewPreview); // Update preview nếu đang edit
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Debounce để lưu sau khi dừng gõ (tránh spam)
+    function debounce(func, delay) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), delay);
+        };
+    }
 
     function renderMarkdown(md,target){
       try{const html=marked.parse(md||'');target.innerHTML=DOMPurify.sanitize(html);}catch(e){target.textContent='Lỗi hiển thị';}
@@ -108,17 +153,26 @@
     btnRead.addEventListener('click',()=>switchToRead());
 
     btnEdit.addEventListener('click',()=>{
+      restoreAutosave(); // THÊM: Khôi phục autosave khi edit
       if(!editor.value){editor.value='';}
       switchToEdit();renderMarkdown(editor.value,reviewPreview);
     });
 
-    btnNew.addEventListener('click',()=>{currentFilename='new_file.md';editor.value='';switchToEdit();reviewPreview.innerHTML='';});
+    btnNew.addEventListener('click',()=>{
+      if (localStorage.getItem(autosaveKey)) {
+        if (!confirm('Xóa autosave hiện tại?')) return;
+        localStorage.removeItem(autosaveKey);
+      }
+      currentFilename='new_file.md';editor.value='';switchToEdit();reviewPreview.innerHTML='';
+    });
 
     btnReview.addEventListener('click',()=>{renderMarkdown(editor.value,reviewPreview);});
 
     btnSave.addEventListener('click',()=>{
       const blob=new Blob([editor.value],{type:'text/markdown'});
       const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=currentFilename||'new_file.md';a.click();
+      autosaveContent(); // Lưu lần cuối
+      localStorage.removeItem(autosaveKey); // THÊM: Xóa autosave sau save
     });
 
     btnExport.addEventListener('click',()=>{
@@ -134,6 +188,24 @@
 
     btnGuide.addEventListener('click',()=>{guideModal.style.display='flex';guideContent.innerHTML=document.getElementById('guideHTML').innerHTML;});
     closeGuide.addEventListener('click',()=>guideModal.style.display='none');
+
+    // THÊM: Event listeners cho autosave
+    const debouncedAutosave = debounce(autosaveContent, 3000);
+    editor.addEventListener('input', debouncedAutosave);
+    editor.addEventListener('blur', autosaveContent);
+
+    // Khôi phục khi load trang
+    document.addEventListener('DOMContentLoaded', () => {
+        restoreAutosave();
+    });
+
+    // THÊM: Nút Clear Autosave (thêm vào controls của editSection)
+    btnClearAutosave.addEventListener('click', () => {
+        if (confirm('Xóa autosave?')) {
+            localStorage.removeItem(autosaveKey);
+            alert('Đã xóa autosave!');
+        }
+    });
   </script>
 
   <!-- Embedded Markdown Guide HTML -->
