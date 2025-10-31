@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MD Reader — Full Markdown Suite</title>
+  <link href="https://fonts.googleapis.com/css2?family=Segoe+UI&display=swap" rel="stylesheet">
+  <style>
+    :root{--accent:#2563eb;--danger:#ef4444;--bg:#f9fafb;--card:#fff;--border:#e5e7eb;--text:#111827}
+    [data-theme="dark"]{--accent:#60a5fa;--danger:#f87171;--bg:#1f2937;--card:#111827;--border:#374151;--text:#f9fafb}
+    *{box-sizing:border-box;font-family:'Segoe UI',sans-serif;transition:background .3s,color .3s}
+    body{margin:0;background:var(--bg);color:var(--text)}
+    .wrap{max-width:1100px;margin:20px auto;padding:20px}
+    h1{margin:0;font-size:22px}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .btn{padding:8px 12px;border:none;border-radius:8px;font-weight:600;cursor:pointer}
+    .btn.primary{background:var(--accent);color:#fff}
+    .btn.ghost{border:1px solid var(--border);background:transparent;color:var(--accent)}
+    .btn.danger{background:var(--danger);color:#fff}
+    .card{background:var(--card);border-radius:10px;padding:14px;box-shadow:0 4px 10px rgba(0,0,0,0.05);margin-top:16px;color:var(--text)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .preview{height:70vh;overflow:auto;border:1px solid var(--border);padding:12px;border-radius:8px;background:var(--card);font-family:'Segoe UI',sans-serif}
+    textarea.editor{width:100%;height:70vh;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:14px;resize:vertical;background:var(--card);color:var(--text);font-family:'Segoe UI',sans-serif}
+    #guideModal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:none;justify-content:center;align-items:center;z-index:1000}
+    #guideModal .content{background:var(--card);color:var(--text);width:80%;height:80%;overflow:auto;padding:20px;border-radius:12px;font-family:'Segoe UI',sans-serif}
+    #guideModal .close{position:absolute;top:20px;right:40px;font-size:24px;font-weight:bold;cursor:pointer;color:#fff}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>MD Reader — Read / Edit / Create Markdown + Professional Guide</h1>
+    <div class="controls">
+      <input type="file" id="fileInput" accept=".md,.markdown,text/markdown" />
+      <button id="btnNew" class="btn ghost">NEW FILE</button>
+      <button id="btnRead" class="btn primary">READ</button>
+      <button id="btnEdit" class="btn ghost">EDIT</button>
+      <button id="btnDark" class="btn ghost">🌙 Dark Mode</button>
+      <button id="btnGuide" class="btn primary">📘 Hướng dẫn Markdown</button>
+    </div>
+
+    <div id="readSection" class="card">
+      <h3>Xem nội dung</h3>
+      <div id="preview" class="preview"></div>
+    </div>
+
+    <div id="editSection" class="card" style="display:none">
+      <div class="controls">
+        <button id="btnReview" class="btn ghost">REVIEW</button>
+        <button id="btnSave" class="btn primary">SAVE</button>
+        <button id="btnExport" class="btn ghost">EXPORT PDF</button>
+      </div>
+      <div class="grid">
+        <div>
+          <h4>Edit Markdown</h4>
+          <textarea id="editor" class="editor"></textarea>
+        </div>
+        <div>
+          <h4>Review Output</h4>
+          <div id="reviewPreview" class="preview"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="guideModal">
+    <div class="close" id="closeGuide">×</div>
+    <div class="content" id="guideContent"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@2.4.0/dist/purify.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.2/html2pdf.bundle.min.js"></script>
+  <script>
+    const fileInput=document.getElementById('fileInput');
+    const btnRead=document.getElementById('btnRead');
+    const btnEdit=document.getElementById('btnEdit');
+    const btnNew=document.getElementById('btnNew');
+    const btnReview=document.getElementById('btnReview');
+    const btnSave=document.getElementById('btnSave');
+    const btnExport=document.getElementById('btnExport');
+    const btnDark=document.getElementById('btnDark');
+    const btnGuide=document.getElementById('btnGuide');
+    const editor=document.getElementById('editor');
+    const preview=document.getElementById('preview');
+    const reviewPreview=document.getElementById('reviewPreview');
+    const readSection=document.getElementById('readSection');
+    const editSection=document.getElementById('editSection');
+    const guideModal=document.getElementById('guideModal');
+    const guideContent=document.getElementById('guideContent');
+    const closeGuide=document.getElementById('closeGuide');
+    let currentFilename=null;
+
+    function renderMarkdown(md,target){
+      try{const html=marked.parse(md||'');target.innerHTML=DOMPurify.sanitize(html);}catch(e){target.textContent='Lỗi hiển thị';}
+    }
+
+    function switchToRead(){readSection.style.display='block';editSection.style.display='none';}
+    function switchToEdit(){readSection.style.display='none';editSection.style.display='block';}
+
+    fileInput.addEventListener('change',()=>{
+      const f=fileInput.files[0];if(!f)return;
+      currentFilename=f.name;
+      const reader=new FileReader();
+      reader.onload=e=>{editor.value=e.target.result;renderMarkdown(editor.value,preview);switchToRead();};
+      reader.readAsText(f,'utf-8');
+    });
+
+    btnRead.addEventListener('click',()=>switchToRead());
+
+    btnEdit.addEventListener('click',()=>{
+      if(!editor.value){editor.value='';}
+      switchToEdit();renderMarkdown(editor.value,reviewPreview);
+    });
+
+    btnNew.addEventListener('click',()=>{currentFilename='new_file.md';editor.value='';switchToEdit();reviewPreview.innerHTML='';});
+
+    btnReview.addEventListener('click',()=>{renderMarkdown(editor.value,reviewPreview);});
+
+    btnSave.addEventListener('click',()=>{
+      const blob=new Blob([editor.value],{type:'text/markdown'});
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=currentFilename||'new_file.md';a.click();
+    });
+
+    btnExport.addEventListener('click',()=>{
+      const opt={margin:10,filename:(currentFilename||'document')+'.pdf',html2canvas:{scale:2},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}};
+      html2pdf().set(opt).from(reviewPreview).save();
+    });
+
+    btnDark.addEventListener('click',()=>{
+      if(document.body.getAttribute('data-theme')==='dark'){
+        document.body.removeAttribute('data-theme');btnDark.textContent='🌙 Dark Mode';
+      }else{document.body.setAttribute('data-theme','dark');btnDark.textContent='☀️ Light Mode';}
+    });
+
+    btnGuide.addEventListener('click',()=>{guideModal.style.display='flex';guideContent.innerHTML=document.getElementById('guideHTML').innerHTML;});
+    closeGuide.addEventListener('click',()=>guideModal.style.display='none');
+  </script>
+
+  <!-- Embedded Markdown Guide HTML -->
+  <div id="guideHTML" style="display:none;font-family:'Segoe UI',sans-serif">
+    <h1>📘 Hướng dẫn sử dụng Markdown — Phiên bản chuyên nghiệp</h1>
+    <p><b>Mục tiêu:</b> Tạo tệp .md có cấu trúc chuyên nghiệp, tương thích hoàn hảo khi hiển thị hoặc chuyển PDF/HTML.</p>
+    <h2>1️⃣ Cấu trúc cơ bản</h2>
+    <ul><li><b>Tiêu đề:</b> # H1 → ###### H6</li><li><b>Đoạn:</b> cách nhau 1 dòng trống.</li></ul>
+    <pre># Tiêu đề chính (H1)\n## Tiêu đề phụ (H2)\n---\nĐoạn văn 1\n\nĐoạn văn 2</pre>
+    <h2>2️⃣ Định dạng</h2>
+    <pre>**bold** *italic* ~~gạch~~</pre>
+    <h2>3️⃣ Danh sách</h2>
+    <pre>- Mục 1\n- Mục 2\n1. Bước 1\n2. Bước 2</pre>
+    <h2>4️⃣ Bảng</h2>
+    <pre>| STT | Tiêu đề | Ghi chú |\n|---:|:---|:---|\n| 1 | A | B |</pre>
+    <h2>5️⃣ Code Block</h2>
+    <pre>```js\nconsole.log('hi')\n```</pre>
+    <h2>6️⃣ Metadata</h2>
+    <pre>---\ntitle: "Tên"\nauthor: "Tác giả"\n---</pre>
+    <h2>✅ Checklist</h2>
+    <ul><li>Kiểm tra tiêu đề tuần tự.</li><li>Liên kết & hình ảnh hợp lệ.</li><li>Bảng hiển thị cân đối.</li></ul>
+  </div>
+</body>
+</html>
